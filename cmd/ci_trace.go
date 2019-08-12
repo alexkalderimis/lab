@@ -1,20 +1,29 @@
 package cmd
 
 import (
+	bytes "bytes"
 	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
+	gitlab "github.com/xanzy/go-gitlab"
 	"github.com/zaquestion/lab/internal/git"
 	lab "github.com/zaquestion/lab/internal/gitlab"
+)
+
+var (
+	cacheKey       string
+	writeToCache   bool = false
+	cachedResponse bytes.Buffer
 )
 
 // ciLintCmd represents the lint command
@@ -43,8 +52,27 @@ var ciTraceCmd = &cobra.Command{
 		remote = determineSourceRemote(branch)
 		if len(args) > 0 {
 			ok, err := git.IsRemote(args[0])
-			if err != nil || !ok {
+			if err != nil {
 				log.Fatal(args[0], " is not a remote:", err)
+			} else if !ok {
+				i, err := strconv.Atoi(args[0])
+				if err == nil {
+					rn, err := git.PathWithNameSpace(remote)
+					if err != nil {
+						log.Fatal(err)
+					}
+					project, err := lab.FindProject(rn)
+					if err != nil {
+						log.Fatal(err)
+					}
+					doTraceByJobID(context.Background(), os.Stdout, project.ID, i)
+					if writeToCache {
+						lab.WriteCache(cacheKey, cachedResponse.Bytes())
+					}
+					return
+				} else {
+					log.Fatal(args[0], " is not a remote:", err)
+				}
 			}
 			remote = args[0]
 		}
@@ -64,15 +92,54 @@ var ciTraceCmd = &cobra.Command{
 	},
 }
 
+func doTraceByJobID(ctx context.Context, w io.Writer, pid interface{}, jobID int) error {
+	var (
+		offset int64
+	)
+	client := lab.Client()
+	offset = 0
+	job, _, err := client.Jobs.GetJob(pid, jobID)
+	if err != nil {
+		return err
+	}
+	cacheKey = fmt.Sprintf("cmd_trace-%d-%d.log", jobID, job.CreatedAt.Unix())
+	var reader io.Reader
+
+	inCache, cached, err := lab.ReadCache(cacheKey)
+
+	if jobIsFinished(job) && inCache && err == nil {
+		fmt.Fprintf(w, "[FROM CACHE]")
+		reader = bytes.NewReader(cached)
+	} else {
+		trace, _, err := client.Jobs.GetTraceFile(pid, jobID)
+		if err != nil {
+			return err
+		}
+		reader = io.TeeReader(trace, &cachedResponse)
+		writeToCache = true
+	}
+
+	fmt.Fprintf(w, "Showing logs for %s job #%d\n", job.Name, job.ID)
+	return printTrace(w, &offset, reader)
+}
+
+func printTrace(w io.Writer, offset *int64, trace io.Reader) error {
+	_, err := io.CopyN(ioutil.Discard, trace, *offset)
+	lenT, err := io.Copy(w, trace)
+	if err != nil {
+		return err
+	}
+	*offset += int64(lenT)
+	return nil
+}
+
 func doTrace(ctx context.Context, w io.Writer, pid interface{}, branch, name string) error {
 	var (
 		once   sync.Once
-		offset int64
+		offset *int64
 	)
+	*offset = 0
 	for range time.NewTicker(time.Second * 3).C {
-		if ctx.Err() == context.Canceled {
-			break
-		}
 		trace, job, err := lab.CITrace(pid, branch, name)
 		if err != nil || job == nil || trace == nil {
 			return errors.Wrap(err, "failed to find job")
@@ -91,20 +158,25 @@ func doTrace(ctx context.Context, w io.Writer, pid interface{}, branch, name str
 			}
 			fmt.Fprintf(w, "Showing logs for %s job #%d\n", job.Name, job.ID)
 		})
-		_, err = io.CopyN(ioutil.Discard, trace, offset)
-		lenT, err := io.Copy(w, trace)
-		if err != nil {
-			return err
+		if ctx.Err() == context.Canceled {
+			break
 		}
-		offset += int64(lenT)
-
-		if job.Status == "success" ||
-			job.Status == "failed" ||
-			job.Status == "cancelled" {
+		printTrace(w, offset, trace)
+		if jobIsFinished(job) {
 			return nil
 		}
 	}
 	return nil
+}
+
+func jobIsFinished(job *gitlab.Job) bool {
+	if job.Status == "success" ||
+		job.Status == "failed" ||
+		job.Status == "skipped" ||
+		job.Status == "cancelled" {
+		return true
+	}
+	return false
 }
 
 func init() {
