@@ -17,7 +17,9 @@ var (
 	mrAll          bool
 	mrMine         bool
 	assigneeID     *int
+	authorID       *int
 	mrAssignee     string
+	mrAuthor       string
 )
 
 // listCmd represents the list command
@@ -38,18 +40,16 @@ var listCmd = &cobra.Command{
 			num = -1
 		}
 
-		if mrAssignee != "" {
-			_assigneeID, err := lab.UserIDByUserName(mrAssignee)
-			if err != nil {
-				log.Fatal(err)
-			}
-			assigneeID = &_assigneeID
-		} else if mrMine {
-			_assigneeID, err := lab.UserID()
-			if err != nil {
-				log.Fatal(err)
-			}
-			assigneeID = &_assigneeID
+		if mrMine {
+			mrAssignee = "@"
+		}
+		err = getUserId(mrAssignee, &assigneeID)
+		if err != nil {
+			log.Fatal(err)
+		}
+		err = getUserId(mrAuthor, &authorID)
+		if err != nil {
+			log.Fatal(err)
 		}
 		mrs, err := lab.MRList(rn, gitlab.ListProjectMergeRequestsOptions{
 			ListOptions: gitlab.ListOptions{
@@ -60,6 +60,7 @@ var listCmd = &cobra.Command{
 			TargetBranch: &mrTargetBranch,
 			OrderBy:      gitlab.String("updated_at"),
 			AssigneeID:   assigneeID,
+			AuthorID:     authorID,
 		}, num)
 		if err != nil {
 			log.Fatal(err)
@@ -68,6 +69,23 @@ var listCmd = &cobra.Command{
 			fmt.Printf("#%d %s\n", mr.IID, mr.Title)
 		}
 	},
+}
+
+func getUserId(username string, userId **int) error {
+	if username == "@" {
+		_userId, err := lab.UserID()
+		if err != nil {
+			return err
+		}
+		*userId = &_userId
+	} else if username != "" {
+		_userId, err := lab.UserIDByUserName(username)
+		if err != nil {
+			return err
+		}
+		*userId = &_userId
+	}
+	return nil
 }
 
 func init() {
@@ -85,7 +103,9 @@ func init() {
 	listCmd.Flags().BoolVarP(&mrAll, "all", "a", false, "List all MRs on the project")
 	listCmd.Flags().BoolVarP(&mrMine, "mine", "m", false, "List only MRs assigned to me")
 	listCmd.Flags().StringVar(
-		&mrAssignee, "assignee", "", "List only MRs assigned to $username")
+		&mrAssignee, "assignee", "", "List only MRs assigned to $username (or @ for assigned to me)")
+	listCmd.Flags().StringVar(
+		&mrAuthor, "author", "", "List only MRs authored by $username (or @ for by me)")
 
 	listCmd.MarkZshCompPositionalArgumentCustom(1, "__lab_completion_remote")
 	listCmd.MarkFlagCustom("state", "(opened closed merged)")
