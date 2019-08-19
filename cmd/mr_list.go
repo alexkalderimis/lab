@@ -20,6 +20,7 @@ var (
 	authorID       *int
 	mrAssignee     string
 	mrAuthor       string
+	ciStatus       bool
 )
 
 // listCmd represents the list command
@@ -66,7 +67,11 @@ var listCmd = &cobra.Command{
 			log.Fatal(err)
 		}
 		for _, mr := range mrs {
-			fmt.Printf("#%d %s\n", mr.IID, mr.Title)
+			fmt.Printf("#%d %s", mr.IID, mr.Title)
+			if ciStatus {
+				fmt.Printf("\t(%s)", mr.Pipeline.Status)
+			}
+			fmt.Println("")
 		}
 	},
 }
@@ -106,6 +111,7 @@ func init() {
 		&mrAssignee, "assignee", "", "List only MRs assigned to $username (or @ for assigned to me)")
 	listCmd.Flags().StringVar(
 		&mrAuthor, "author", "", "List only MRs authored by $username (or @ for by me)")
+	listCmd.Flags().BoolVarP(&ciStatus, "ci-status", "c", false, "Include CI Status in the results")
 
 	listCmd.MarkZshCompPositionalArgumentCustom(1, "__lab_completion_remote")
 	listCmd.MarkFlagCustom("state", "(opened closed merged)")
