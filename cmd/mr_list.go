@@ -21,6 +21,7 @@ var (
 	mrAssignee     string
 	mrAuthor       string
 	ciStatus       bool
+	mrSourceBranch bool
 )
 
 // listCmd represents the list command
@@ -68,6 +69,9 @@ var listCmd = &cobra.Command{
 		}
 		for _, mr := range mrs {
 			fmt.Printf("#%d %s", mr.IID, mr.Title)
+			if mrSourceBranch {
+				fmt.Printf("\t[%s]", mr.SourceBranch)
+			}
 			if ciStatus {
 				pipelines, err := lab.MRPipelines(rn, mr)
 				if err != nil {
@@ -118,6 +122,7 @@ func init() {
 	listCmd.Flags().StringVar(
 		&mrAuthor, "author", "", "List only MRs authored by $username (or @ for by me)")
 	listCmd.Flags().BoolVarP(&ciStatus, "ci-status", "c", false, "Include CI Status in the results")
+	listCmd.Flags().BoolVarP(&mrSourceBranch, "show-branch", "b", false, "Include source branch in the results")
 
 	listCmd.MarkZshCompPositionalArgumentCustom(1, "__lab_completion_remote")
 	listCmd.MarkFlagCustom("state", "(opened closed merged)")
