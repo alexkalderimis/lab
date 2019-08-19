@@ -725,6 +725,11 @@ func ProjectList(opts gitlab.ListProjectsOptions, n int) ([]*gitlab.Project, err
 	return list, nil
 }
 
+func MRPipelines(pid interface{}, mr *gitlab.MergeRequest) (gitlab.PipelineList, error) {
+	pipelines, _, err := lab.MergeRequests.ListMergeRequestPipelines(pid, mr.IID)
+	return pipelines, err
+}
+
 // CIJobs returns a list of jobs in a pipeline for a given sha. The jobs are
 // returned sorted by their CreatedAt time
 func CIJobs(pid interface{}, branch string) ([]*gitlab.Job, error) {

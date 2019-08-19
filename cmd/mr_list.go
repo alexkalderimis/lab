@@ -69,7 +69,13 @@ var listCmd = &cobra.Command{
 		for _, mr := range mrs {
 			fmt.Printf("#%d %s", mr.IID, mr.Title)
 			if ciStatus {
-				fmt.Printf("\t(%s)", mr.Pipeline.Status)
+				pipelines, err := lab.MRPipelines(rn, mr)
+				if err != nil {
+					log.Fatal(err)
+				}
+				if len(pipelines) > 0 {
+					fmt.Printf("\t(%s)", pipelines[0].Status)
+				}
 			}
 			fmt.Println("")
 		}
