@@ -15,6 +15,7 @@ var (
 	mrTargetBranch string
 	mrNumRet       int
 	mrAll          bool
+	ciStatus       bool
 )
 
 // listCmd represents the list command
@@ -47,7 +48,11 @@ var listCmd = &cobra.Command{
 			log.Fatal(err)
 		}
 		for _, mr := range mrs {
-			fmt.Printf("#%d %s\n", mr.IID, mr.Title)
+			fmt.Printf("#%d %s", mr.IID, mr.Title)
+			if ciStatus {
+				fmt.Printf("\t(%s)", mr.Pipeline.Status)
+			}
+			fmt.Println("")
 		}
 	},
 }
@@ -65,6 +70,7 @@ func init() {
 		&mrTargetBranch, "target-branch", "t", "",
 		"filter merge requests by target branch")
 	listCmd.Flags().BoolVarP(&mrAll, "all", "a", false, "List all MRs on the project")
+	listCmd.Flags().BoolVarP(&ciStatus, "ci-status", "c", false, "Include CI Status in the results")
 
 	listCmd.MarkZshCompPositionalArgumentCustom(1, "__lab_completion_remote")
 	listCmd.MarkFlagCustom("state", "(opened closed merged)")
