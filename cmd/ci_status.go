@@ -16,18 +16,11 @@ import (
 )
 
 var (
-	onlyFailures   bool
-	useColor       bool
-	noSkipped      bool
-	wait           bool
-	noCreated      bool
-	summaryOnly    bool
-	failed         = color.New(color.FgRed)
-	passed         = color.New(color.FgGreen)
-	skipped        = color.New(color.FgYellow)
-	running        = color.New(color.FgBlue)
-	created        = color.New(color.FgMagenta)
-	defaultPrinter = color.New(color.FgBlack)
+	onlyFailures bool
+	noSkipped    bool
+	wait         bool
+	noCreated    bool
+	summaryOnly  bool
 )
 
 const (
@@ -83,7 +76,7 @@ func runCommand(cmd *cobra.Command, args []string) {
 	if !summaryOnly {
 		fmt.Fprintln(w, "Stage:\tName\t-\tStatus")
 	}
-	color.NoColor = !useColor
+	color.NoColor = !lab.UseColor
 	var (
 		printer *color.Color
 	)
@@ -113,7 +106,7 @@ func runCommand(cmd *cobra.Command, args []string) {
 				} else if noCreated && job.Status == "created" {
 					continue
 				} else {
-					printer = statusColor(job.Status)
+					printer = lab.StatusColor(job.Status)
 					printer.Fprintf(w, jobFormat, maxStageLength, job.Stage, -maxNameLength, job.Name, job.Status, job.ID)
 				}
 			}
@@ -141,7 +134,7 @@ func runCommand(cmd *cobra.Command, args []string) {
 
 func pipelineStatus(pipeline *gitlab.Pipeline, jobs []*gitlab.Job) string {
 	return fmt.Sprintf("\nPipeline Status:\t%s\n%s\n\n%s\n",
-		statusColor(pipeline.Status).Sprintf(pipeline.Status), timeMessage(pipeline), jobSummary(jobs))
+		lab.StatusColor(pipeline.Status).Sprintf(pipeline.Status), timeMessage(pipeline), jobSummary(jobs))
 }
 
 func jobSummary(jobs []*gitlab.Job) string {
@@ -195,33 +188,11 @@ func aliasFailures(f *flag.FlagSet, name string) flag.NormalizedName {
 	return flag.NormalizedName(name)
 }
 
-func statusColor(status string) *color.Color {
-	switch status {
-	case "failed":
-		return failed
-	case "success":
-		return passed
-	case "passed":
-		return passed
-	case "running":
-		return running
-	case "created":
-		return created
-	case "pending":
-		return created
-	case "skipped":
-		return skipped
-	default:
-		return defaultPrinter
-	}
-}
-
 func init() {
-	defaultPrinter.DisableColor()
 	ciStatusCmd.MarkZshCompPositionalArgumentCustom(1, "__lab_completion_remote_branches")
 	ciStatusCmd.Flags().BoolVarP(&wait, "wait", "w", false, "Continuously print the status and wait to exit until the pipeline finishes. Exit code indicates pipeline status")
 	ciStatusCmd.Flags().BoolVarP(&noSkipped, "no-skipped", "", false, "Ignore skipped tests - do not print them")
-	ciStatusCmd.Flags().BoolVarP(&useColor, "color", "c", false, "Use color for success and failure")
+	ciStatusCmd.Flags().BoolVarP(&lab.UseColor, "color", "c", false, "Use color for success and failure")
 	ciStatusCmd.Flags().BoolVarP(&onlyFailures, "failures", "f", false, "Only print failures")
 	ciStatusCmd.Flags().BoolVarP(&noCreated, "results-only", "r", false, "Only show completed and running tests. Does not report queued jobs")
 	ciStatusCmd.Flags().BoolVarP(&summaryOnly, "summary", "s", false, "Do not show individual jobs, just the pipeline summary")

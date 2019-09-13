@@ -78,7 +78,9 @@ var listCmd = &cobra.Command{
 					log.Fatal(err)
 				}
 				if len(pipelines) > 0 {
-					fmt.Printf("\t(%s)", pipelines[0].Status)
+					status := pipelines[0].Status
+					printer := lab.StatusColor(status)
+					printer.Printf("\t(%s)", status)
 				}
 			}
 			fmt.Println("")
@@ -123,6 +125,7 @@ func init() {
 		&mrAuthor, "author", "", "List only MRs authored by $username (or @ for by me)")
 	listCmd.Flags().BoolVarP(&ciStatus, "ci-status", "c", false, "Include CI Status in the results")
 	listCmd.Flags().BoolVarP(&mrSourceBranch, "show-branch", "b", false, "Include source branch in the results")
+	listCmd.Flags().BoolVarP(&lab.UseColor, "color", "", false, "Use color for CI job status")
 
 	listCmd.MarkZshCompPositionalArgumentCustom(1, "__lab_completion_remote")
 	listCmd.MarkFlagCustom("state", "(opened closed merged)")

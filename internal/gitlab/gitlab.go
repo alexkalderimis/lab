@@ -17,6 +17,7 @@ import (
 	"syscall"
 	time "time"
 
+	color "github.com/fatih/color"
 	"github.com/pkg/errors"
 	configdir "github.com/shibukawa/configdir"
 	gitlab "github.com/xanzy/go-gitlab"
@@ -29,11 +30,43 @@ var (
 )
 
 var (
-	lab   *gitlab.Client
-	host  string
-	user  string
-	token string
+	lab            *gitlab.Client
+	host           string
+	user           string
+	token          string
+	UseColor       bool
+	failed         = color.New(color.FgRed)
+	passed         = color.New(color.FgGreen)
+	skipped        = color.New(color.FgYellow)
+	running        = color.New(color.FgBlue)
+	created        = color.New(color.FgMagenta)
+	defaultPrinter = color.New(color.FgBlack)
 )
+
+func StatusColor(status string) *color.Color {
+	if !UseColor {
+		return defaultPrinter
+	}
+
+	switch status {
+	case "failed":
+		return failed
+	case "success":
+		return passed
+	case "passed":
+		return passed
+	case "running":
+		return running
+	case "created":
+		return created
+	case "pending":
+		return created
+	case "skipped":
+		return skipped
+	default:
+		return defaultPrinter
+	}
+}
 
 // Host exposes the GitLab scheme://hostname used to interact with the API
 func Host() string {
@@ -78,6 +111,7 @@ func Client() *gitlab.Client {
 
 // Init initializes a gitlab client for use throughout lab.
 func Init(_host, _user, _token string) {
+	defaultPrinter.DisableColor()
 	if len(_host) > 0 && _host[len(_host)-1 : len(_host)][0] == '/' {
 		_host = _host[0 : len(_host)-1]
 	}
