@@ -67,10 +67,21 @@ var listCmd = &cobra.Command{
 		if err != nil {
 			log.Fatal(err)
 		}
+		maxTitleLength := 0
+		maxBranchNameLength := 0
 		for _, mr := range mrs {
-			fmt.Printf("#%d %s", mr.IID, mr.Title)
+			if len(mr.Title) > maxTitleLength {
+				maxTitleLength = len(mr.Title)
+			}
+			if len(mr.SourceBranch) > maxBranchNameLength {
+				maxBranchNameLength = len(mr.SourceBranch)
+			}
+		}
+
+		for _, mr := range mrs {
+			fmt.Printf("#%d %*s", mr.IID, -maxTitleLength, mr.Title)
 			if mrSourceBranch {
-				fmt.Printf("\t[%s]", mr.SourceBranch)
+				fmt.Printf(" | %*s |", -maxBranchNameLength, mr.SourceBranch)
 			}
 			if ciStatus {
 				pipelines, err := lab.MRPipelines(rn, mr)
@@ -80,7 +91,7 @@ var listCmd = &cobra.Command{
 				if len(pipelines) > 0 {
 					status := pipelines[0].Status
 					printer := lab.StatusColor(status)
-					printer.Printf("\t(%s)", status)
+					printer.Printf(" %s", status)
 				}
 			}
 			fmt.Println("")

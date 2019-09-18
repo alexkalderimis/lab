@@ -230,7 +230,8 @@ var (
 
 // GetProject looks up a Gitlab project by ID.
 func GetProject(projectID interface{}) (*gitlab.Project, error) {
-	target, resp, err := lab.Projects.GetProject(projectID)
+	var opts gitlab.GetProjectOptions
+	target, resp, err := lab.Projects.GetProject(projectID, &opts)
 	if resp != nil && resp.StatusCode == http.StatusNotFound {
 		return nil, ErrProjectNotFound
 	}
@@ -253,7 +254,8 @@ func FindProject(project string) (*gitlab.Project, error) {
 		search = user + "/" + project
 	}
 
-	target, resp, err := lab.Projects.GetProject(search)
+	var opts gitlab.GetProjectOptions
+	target, resp, err := lab.Projects.GetProject(search, &opts)
 	if resp != nil && resp.StatusCode == http.StatusNotFound {
 		return nil, ErrProjectNotFound
 	}
@@ -286,7 +288,8 @@ func Fork(project string) (string, error) {
 		return "", err
 	}
 
-	fork, _, err := lab.Projects.ForkProject(target.ID)
+	var opts gitlab.ForkProjectOptions
+	fork, _, err := lab.Projects.ForkProject(target.ID, &opts)
 	if err != nil {
 		return "", err
 	}
@@ -773,7 +776,10 @@ func CIJobs(pid interface{}, branch string) ([]*gitlab.Job, error) {
 	if len(pipelines) == 0 || err != nil {
 		return nil, err
 	}
-	target := pipelines[0].ID
+	return PipelineJobs(pid, pipelines[0].ID)
+}
+
+func PipelineJobs(pid interface{}, target int) ([]*gitlab.Job, error) {
 	opts := &gitlab.ListJobsOptions{
 		ListOptions: gitlab.ListOptions{
 			PerPage: 500,

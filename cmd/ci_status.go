@@ -11,7 +11,6 @@ import (
 	"github.com/spf13/cobra"
 	flag "github.com/spf13/pflag"
 	gitlab "github.com/xanzy/go-gitlab"
-	"github.com/zaquestion/lab/internal/git"
 	lab "github.com/zaquestion/lab/internal/gitlab"
 )
 
@@ -40,30 +39,13 @@ lab ci status --wait`,
 }
 
 func runCommand(cmd *cobra.Command, args []string) {
-	branch, err := git.CurrentBranch()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	if len(args) > 1 {
-		branch = args[1]
-	}
-	remote := determineSourceRemote(branch)
-	if len(args) > 0 {
-		ok, err := git.IsRemote(args[0])
-		if err != nil || !ok {
-			log.Fatal(args[0], " is not a remote:", err)
-		}
-		remote = args[0]
-	}
-	rn, err := git.PathWithNameSpace(remote)
-	if err != nil {
-		log.Fatal(err)
-	}
-	pid := rn
-
 	w := tabwriter.NewWriter(os.Stdout, 2, 4, 1, byte(' '), 0)
-	jobs, err := lab.CIJobs(pid, branch)
+	pid, mr, err := parseProjectMR(args)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+	jobs, err := lab.PipelineJobs(pid, mr.HeadPipeline.ID)
 	if err != nil {
 		log.Fatal(errors.Wrap(err, "failed to find ci jobs"))
 	}
@@ -190,6 +172,7 @@ func aliasFailures(f *flag.FlagSet, name string) flag.NormalizedName {
 
 func init() {
 	ciStatusCmd.MarkZshCompPositionalArgumentCustom(1, "__lab_completion_remote_branches")
+	ciStatusCmd.MarkZshCompPositionalArgumentCustom(2, "__lab_completion_merge_request $words[2]")
 	ciStatusCmd.Flags().BoolVarP(&wait, "wait", "w", false, "Continuously print the status and wait to exit until the pipeline finishes. Exit code indicates pipeline status")
 	ciStatusCmd.Flags().BoolVarP(&noSkipped, "no-skipped", "", false, "Ignore skipped tests - do not print them")
 	ciStatusCmd.Flags().BoolVarP(&lab.UseColor, "color", "c", false, "Use color for success and failure")

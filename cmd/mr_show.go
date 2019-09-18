@@ -7,54 +7,25 @@ import (
 
 	"github.com/spf13/cobra"
 	gitlab "github.com/xanzy/go-gitlab"
-	lab "github.com/zaquestion/lab/internal/gitlab"
-	git "github.com/zaquestion/lab/internal/git"
 )
 
 var mrShowCmd = &cobra.Command{
-	Use:        "show [remote] <id>",
+	Use:        "show [remote] [id]",
 	Aliases:    []string{"get"},
 	ArgAliases: []string{"s"},
 	Short:      "Describe a merge request",
 	Long:       ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		rn, mrNum, err := parseArgs(args)
+		rn, mr, err := parseProjectMR(args)
 		if err != nil {
 			log.Fatal(err)
 		}
-
-                if int(mrNum) <= 0 {
-			currentBranch, err := git.CurrentBranch()
-			if err != nil {
-				log.Fatal(err)
-			}
-			mrs, err := lab.MRList(rn, gitlab.ListProjectMergeRequestsOptions{
-				ListOptions: gitlab.ListOptions{
-					PerPage: 10,
-				},
-				Labels:       mrLabels,
-				State:        &mrState,
-				OrderBy:      gitlab.String("updated_at"),
-				SourceBranch: gitlab.String(currentBranch),
-			}, -1)
-			if err != nil {
-				log.Fatal(err)
-			}
-			if len(mrs) > 0 {
-				mrNum = int64(mrs[0].IID)
-			}
-                }
-		mr, err := lab.MRGet(rn, int(mrNum))
-		if err != nil {
-			log.Fatal(err)
-		}
-
 		printMR(mr, rn)
 	},
 }
 
 func printMR(mr *gitlab.MergeRequest, project string) {
-	assignee := "None"
+	assignees := "None"
 	milestone := "None"
 	labels := "None"
 	state := map[string]string{
@@ -62,8 +33,19 @@ func printMR(mr *gitlab.MergeRequest, project string) {
 		"closed": "Closed",
 		"merged": "Merged",
 	}[mr.State]
-	if mr.Assignee.Username != "" {
-		assignee = mr.Assignee.Username
+	var sb strings.Builder
+	for _, assignee := range mr.Assignees {
+		if assignee.Username == "" {
+			continue
+		}
+
+		if sb.Len() > 0 {
+			sb.WriteString(", ")
+		}
+		sb.WriteString(assignee.Username)
+	}
+	if sb.Len() > 0 {
+		assignees = sb.String()
 	}
 	if mr.Milestone != nil {
 		milestone = mr.Milestone.Title
@@ -80,14 +62,14 @@ func printMR(mr *gitlab.MergeRequest, project string) {
 Project: %s
 Branches: %s->%s
 Status: %s
-Assignee: %s
+Assignees: %s
 Author: %s
 Milestone: %s
 Labels: %s
 WebURL: %s
 `,
 		mr.IID, mr.Title, mr.Description, project, mr.SourceBranch,
-		mr.TargetBranch, state, assignee,
+		mr.TargetBranch, state, assignees,
 		mr.Author.Username, milestone, labels, mr.WebURL)
 }
 

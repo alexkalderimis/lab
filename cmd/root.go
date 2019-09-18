@@ -14,6 +14,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	gitconfig "github.com/tcnksm/go-gitconfig"
+	gitlab "github.com/xanzy/go-gitlab"
 	"github.com/zaquestion/lab/internal/git"
 	lab "github.com/zaquestion/lab/internal/gitlab"
 )
@@ -116,6 +117,32 @@ func parseArgsStr(args []string) (string, int64, error) {
 	return parseArgsStringInt(args)
 }
 
+func resolveMrId(rn string, mrNum int64) (int64, error) {
+	if int(mrNum) > 0 {
+		return mrNum, nil
+	}
+	currentBranch, err := git.CurrentBranch()
+	if err != nil {
+		return 0, err
+	}
+	mrs, err := lab.MRList(rn, gitlab.ListProjectMergeRequestsOptions{
+		ListOptions: gitlab.ListOptions{
+			PerPage: 10,
+		},
+		Labels:       mrLabels,
+		State:        &mrState,
+		OrderBy:      gitlab.String("updated_at"),
+		SourceBranch: gitlab.String(currentBranch),
+	}, -1)
+	if err != nil {
+		return 0, err
+	}
+	if len(mrs) > 0 {
+		return int64(mrs[0].IID), nil
+	}
+	return 0, errors.New("No Merge requests found for this branch")
+}
+
 // parseArgsStringInt returns a string and a number if parsed.
 func parseArgsStringInt(args []string) (string, int64, error) {
 	if len(args) == 2 {
@@ -138,6 +165,40 @@ func parseArgsStringInt(args []string) (string, int64, error) {
 // parseArgs returns a remote name and a number if parsed
 func parseArgs(args []string) (string, int64, error) {
 	return parseArgsRemoteInt(args)
+}
+
+func parseProjectMR(args []string) (string, *gitlab.MergeRequest, error) {
+	pid, mrNum, err := parseArgs(args)
+	if err != nil {
+		return "", nil, err
+	}
+
+	if int(mrNum) <= 0 {
+		currentBranch, err := git.CurrentBranch()
+		if err != nil {
+			return "", nil, err
+		}
+		mrs, err := lab.MRList(pid, gitlab.ListProjectMergeRequestsOptions{
+			ListOptions: gitlab.ListOptions{
+				PerPage: 10,
+			},
+			Labels:       mrLabels,
+			State:        &mrState,
+			OrderBy:      gitlab.String("updated_at"),
+			SourceBranch: gitlab.String(currentBranch),
+		}, -1)
+		if err != nil {
+			return "", nil, err
+		}
+		if len(mrs) > 0 {
+			mrNum = int64(mrs[0].IID)
+		}
+	}
+	mr, err := lab.MRGet(pid, int(mrNum))
+	if err != nil {
+		return "", nil, err
+	}
+	return pid, mr, nil
 }
 
 // parseArgsRemoteInt is similar to parseArgsStringInt except that it uses the
