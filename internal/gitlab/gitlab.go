@@ -6,6 +6,7 @@ package gitlab
 
 import (
 	"fmt"
+	unix "golang.org/x/sys/unix"
 	"io"
 	"io/ioutil"
 	"log"
@@ -14,7 +15,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
-	"syscall"
 	time "time"
 
 	color "github.com/fatih/color"
@@ -175,7 +175,7 @@ func removeOldCacheEntries() error {
 			atime = mtime
 		default:
 			// Assume linux or osx
-			stat := f.Sys().(*syscall.Stat_t)
+			stat := f.Sys().(*unix.Stat_t)
 			atime = time.Unix(int64(stat.Atim.Sec), int64(stat.Atim.Nsec))
 		}
 		if currenttime.Sub(atime).Hours() > maxAge {

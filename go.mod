@@ -37,6 +37,7 @@ require (
 	github.com/xanzy/go-gitlab v0.20.2-0.20190911085231-b83e6697f53c
 	golang.org/x/arch v0.0.0-20181203225421-5a4828bb7045 // indirect
 	golang.org/x/crypto v0.0.0-20180904163835-0709b304e793
+	golang.org/x/sys v0.0.0-20190626150813-e07cf5db2756
 	golang.org/x/tools v0.0.0-20190107155254-e063def13b29 // indirect
 	gopkg.in/DATA-DOG/go-sqlmock.v1 v1.3.0 // indirect
 )
