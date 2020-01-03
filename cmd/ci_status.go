@@ -45,6 +45,7 @@ func runCommand(cmd *cobra.Command, args []string) {
 	if err != nil {
 		log.Fatal(err)
 	}
+	// TODO: select pipeline
 	jobs, err := lab.PipelineJobs(pid, mr.HeadPipeline.ID)
 	if err != nil {
 		log.Fatal(errors.Wrap(err, "failed to find ci jobs"))
