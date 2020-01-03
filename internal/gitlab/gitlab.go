@@ -14,10 +14,13 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	time "time"
 
 	color "github.com/fatih/color"
+	"github.com/juju/loggo"
+	"github.com/juju/loggo/loggocolor"
 	"github.com/pkg/errors"
 	configdir "github.com/shibukawa/configdir"
 	gitlab "github.com/xanzy/go-gitlab"
@@ -35,6 +38,7 @@ var (
 	user           string
 	token          string
 	UseColor       bool
+	cmdLogger      = loggo.GetLogger("cmd")
 	failed         = color.New(color.FgRed)
 	passed         = color.New(color.FgGreen)
 	skipped        = color.New(color.FgYellow)
@@ -122,6 +126,11 @@ func Init(_host, _user, _token string) {
 	lab.SetBaseURL(host + "/api/v4")
 	configDirs := configdir.New("zaquestion", "lab-cli")
 	cacheDir = configDirs.QueryCacheFolder()
+	loggo.ReplaceDefaultWriter(loggocolor.NewWriter(os.Stderr))
+}
+
+func CmdLogger() loggo.Logger {
+	return cmdLogger
 }
 
 func ReadCache(fileName string) (bool, []byte, error) {
@@ -913,4 +922,14 @@ func UserIDFromUsername(username string) (int, error) {
 		return -1, err
 	}
 	return us[0].ID, nil
+}
+
+func OffsetPagination(page int, perPage int) gitlab.OptionFunc {
+	return func(req *http.Request) error {
+		q := req.URL.Query()
+		q.Add("page", strconv.Itoa(page))
+		q.Add("per_page", strconv.Itoa(perPage))
+		req.URL.RawQuery = q.Encode()
+		return nil
+	}
 }

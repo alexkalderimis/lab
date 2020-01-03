@@ -73,10 +73,12 @@ func getDiscussions(mr *gitlab.MergeRequest) {
 	opts := gitlab.ListMergeRequestDiscussionsOptions{PerPage: 500}
 	var w strings.Builder
 	for {
+		lab.CmdLogger().Debugf("ListMergeRequestDiscussions fetching opts=%s", opts)
 		list, resp, err := client.Discussions.ListMergeRequestDiscussions(mr.ProjectID, mr.IID, &opts)
 		if err != nil {
 			log.Fatal(err)
 		}
+		lab.CmdLogger().Debugf("ListMergeRequestDiscussions resp=%s", resp)
 		for _, discussion := range list {
 			w.Reset()
 			written := 0
@@ -99,8 +101,10 @@ func getDiscussions(mr *gitlab.MergeRequest) {
 				fmt.Println(w.String())
 			}
 		}
+		lab.CmdLogger().Debugf("ListMergeRequestDiscussions opts.Page=%s resp.NextPage=%s", opts.Page, resp.NextPage)
 		opts.Page = resp.NextPage
 		if resp.CurrentPage >= resp.NextPage || resp.CurrentPage == resp.TotalPages {
+			lab.CmdLogger().Debugf("ListMergeRequestDiscussions complete resp=%s", resp)
 			break
 		}
 	}

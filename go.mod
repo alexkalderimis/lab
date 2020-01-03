@@ -1,7 +1,6 @@
 module github.com/zaquestion/lab
 
 require (
-	github.com/BurntSushi/toml v0.3.1 // indirect
 	github.com/avast/retry-go v0.0.0-20180319101611-5469272a8171
 	github.com/cpuguy83/go-md2man v1.0.8 // indirect
 	github.com/davecgh/go-spew v1.1.1
@@ -12,6 +11,8 @@ require (
 	github.com/hashicorp/hcl v0.0.0-20180404174102-ef8a98b0bbce // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/jtolds/gls v4.2.1+incompatible // indirect
+	github.com/juju/ansiterm v0.0.0-20180109212912-720a0952cc2a // indirect
+	github.com/juju/loggo v0.0.0-20190526231331-6e530bcce5d8
 	github.com/lunixbochs/vtclean v0.0.0-20180621232353-2d01aacdc34a
 	github.com/magiconair/properties v1.7.6 // indirect
 	github.com/mattn/go-colorable v0.1.2 // indirect
@@ -31,14 +32,14 @@ require (
 	github.com/spf13/jwalterweatherman v0.0.0-20180109140146-7c0cea34c8ec // indirect
 	github.com/spf13/pflag v1.0.1
 	github.com/spf13/viper v0.0.0-20180507071007-15738813a09d
-	github.com/stretchr/testify v1.3.0
+	github.com/stretchr/testify v1.4.0
 	github.com/tcnksm/go-gitconfig v0.1.2
 	github.com/wadey/gocovmerge v0.0.0-20160331181800-b5bfa59ec0ad // indirect
 	github.com/xanzy/go-gitlab v0.20.2-0.20190911085231-b83e6697f53c
 	golang.org/x/arch v0.0.0-20181203225421-5a4828bb7045 // indirect
-	golang.org/x/crypto v0.0.0-20180904163835-0709b304e793
+	golang.org/x/crypto v0.0.0-20190510104115-cbcb75029529
 	golang.org/x/sys v0.0.0-20190626150813-e07cf5db2756
-	golang.org/x/tools v0.0.0-20190107155254-e063def13b29 // indirect
+	golang.org/x/tools/gopls v0.2.2 // indirect
 	gopkg.in/DATA-DOG/go-sqlmock.v1 v1.3.0 // indirect
 )
 
