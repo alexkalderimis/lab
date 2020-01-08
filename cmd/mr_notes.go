@@ -165,18 +165,22 @@ func printNote(note *gitlab.Note, isReply bool) string {
 }
 
 func getContext(sha string, path string, line int) string {
+	lab.CmdLogger().Debugf("getContext sha=%s, path=%s:%d", sha, path, line)
 	if contextWindow < 1 {
 		return ""
 	}
 	halfWindow := contextWindow / 2
 
+	// TODO: detect if the SHA is not available
 	proc := exec.Command("git", "show", fmt.Sprintf("%s:%s", sha, path))
 	output, err := proc.StdoutPipe()
 	if err != nil {
-		log.Fatal(err)
+		lab.CmdLogger().Warningf("Could not read context sha=%s, path=%s:%d", sha, path, line)
+		return ""
 	}
 	if err := proc.Start(); err != nil {
-		log.Fatal(err)
+		lab.CmdLogger().Warningf("Could not read context sha=%s, path=%s:%d", sha, path, line)
+		return ""
 	}
 
 	scanner := bufio.NewScanner(output)
@@ -199,11 +203,10 @@ func getContext(sha string, path string, line int) string {
 		currentLine += 1
 	}
 	if err := scanner.Err(); err != nil {
-		context.WriteString("\n")
-		context.WriteString(fmt.Sprintf("Error reading %s: %s", path, err))
+		lab.CmdLogger().Warningf("Could not read context sha=%s, path=%s:%d", sha, path, line)
 	}
 	if err := proc.Wait(); err != nil {
-		log.Fatal(err)
+		lab.CmdLogger().Warningf("Could not read context sha=%s, path=%s:%d", sha, path, line)
 	}
 	return context.String()
 }
