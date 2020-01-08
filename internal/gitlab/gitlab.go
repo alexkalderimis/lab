@@ -126,7 +126,18 @@ func Init(_host, _user, _token string) {
 	lab.SetBaseURL(host + "/api/v4")
 	configDirs := configdir.New("zaquestion", "lab-cli")
 	cacheDir = configDirs.QueryCacheFolder()
+	initLogger()
+}
+
+func initLogger() {
 	loggo.ReplaceDefaultWriter(loggocolor.NewWriter(os.Stderr))
+	specification := os.Getenv("LAB_LOGGO_SPEC")
+	if specification != "" {
+		err := loggo.ConfigureLoggers(specification)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
 }
 
 func CmdLogger() loggo.Logger {
