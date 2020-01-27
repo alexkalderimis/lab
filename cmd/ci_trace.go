@@ -116,7 +116,7 @@ func doTraceByJobID(ctx context.Context, w io.Writer, pid interface{}, jobID int
 			return err
 		}
 		reader = io.TeeReader(trace, &cachedResponse)
-		writeToCache = jobIsFinished(job)
+		writeToCache = !inCache && jobIsFinished(job)
 	}
 
 	fmt.Fprintf(w, "Showing logs for %s job #%d\n", job.Name, job.ID)
