@@ -14,7 +14,9 @@ require (
 	github.com/juju/ansiterm v0.0.0-20180109212912-720a0952cc2a // indirect
 	github.com/juju/loggo v0.0.0-20190526231331-6e530bcce5d8
 	github.com/lunixbochs/vtclean v0.0.0-20180621232353-2d01aacdc34a
+	github.com/machinebox/graphql v0.2.2
 	github.com/magiconair/properties v1.7.6 // indirect
+	github.com/matryer/is v1.2.0 // indirect
 	github.com/mattn/go-colorable v0.1.2 // indirect
 	github.com/mitchellh/mapstructure v0.0.0-20180220230111-00c29f56e238 // indirect
 	github.com/onsi/gomega v1.4.3 // indirect

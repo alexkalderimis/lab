@@ -5,6 +5,7 @@
 package gitlab
 
 import (
+	"encoding/json"
 	"fmt"
 	unix "golang.org/x/sys/unix"
 	"io"
@@ -21,6 +22,7 @@ import (
 	color "github.com/fatih/color"
 	"github.com/juju/loggo"
 	"github.com/juju/loggo/loggocolor"
+	graphql "github.com/machinebox/graphql"
 	"github.com/pkg/errors"
 	configdir "github.com/shibukawa/configdir"
 	gitlab "github.com/xanzy/go-gitlab"
@@ -45,6 +47,7 @@ var (
 	running        = color.New(color.FgBlue)
 	created        = color.New(color.FgMagenta)
 	defaultPrinter = color.New(color.FgBlack)
+	graphqlClient  *graphql.Client
 )
 
 func StatusColor(status string) *color.Color {
@@ -83,30 +86,56 @@ func User() string {
 }
 
 func UserID() (int, error) {
-	u, _, err := lab.Users.CurrentUser()
-	if err != nil {
-		return 0, err
-	} else {
-		return u.ID, nil
+	filename := "current_user.json"
+	getUser := func() (*gitlab.User, error) {
+		u, _, err := lab.Users.CurrentUser()
+		return u, err
 	}
+	return userIdWithCache(filename, getUser)
 }
 
 func UserIDByUserName(username string) (int, error) {
-	opts := gitlab.ListUsersOptions{
-		ListOptions: gitlab.ListOptions{
-			PerPage: 1,
-		},
-		Username: &username,
+	filename := fmt.Sprintf("user_%s.json", username)
+	getUser := func() (*gitlab.User, error) {
+		opts := gitlab.ListUsersOptions{
+			ListOptions: gitlab.ListOptions{
+				PerPage: 1,
+			},
+			Username: &username,
+		}
+		users, _, err := lab.Users.ListUsers(&opts)
+		if err != nil {
+			return nil, err
+		} else {
+			for _, user := range users {
+				return user, nil
+			}
+		}
+		return nil, errors.New("No user found with username " + username)
 	}
-	users, _, err := lab.Users.ListUsers(&opts)
-	if err != nil {
-		return 0, err
-	} else {
-		for _, user := range users {
+	return userIdWithCache(filename, getUser)
+}
+
+func userIdWithCache(filename string, fn func() (*gitlab.User, error)) (int, error) {
+	inCache, bytes, err := ReadCacheTouch(filename, false)
+	if inCache && err == nil {
+		user := gitlab.User{}
+		err := json.Unmarshal(bytes, &user)
+		if err == nil {
 			return user.ID, nil
 		}
 	}
-	return 0, errors.New("No user found with username " + username)
+	u, err := fn()
+	if err != nil {
+		return 0, err
+	} else {
+		bytes, err := json.Marshal(u)
+		if err == nil {
+			WriteCache(filename, bytes)
+		}
+
+		return u.ID, nil
+	}
 }
 
 func Client() *gitlab.Client {
@@ -124,9 +153,46 @@ func Init(_host, _user, _token string) {
 	token = _token
 	lab = gitlab.NewClient(nil, token)
 	lab.SetBaseURL(host + "/api/v4")
+	graphqlClient = graphql.NewClient(host+"/api/graphql", withToken())
 	configDirs := configdir.New("zaquestion", "lab-cli")
 	cacheDir = configDirs.QueryCacheFolder()
+	cacheDir.MkdirAll()
 	initLogger()
+}
+
+func GQLClient() *graphql.Client {
+	return graphqlClient
+}
+
+func withToken() graphql.ClientOption {
+	client := http.DefaultClient
+
+	rt := WithHeader(client.Transport)
+	rt.Set("Authorization", "Bearer "+token)
+	client.Transport = rt
+
+	return graphql.WithHTTPClient(client)
+}
+
+type withHeader struct {
+	http.Header
+	rt http.RoundTripper
+}
+
+func WithHeader(rt http.RoundTripper) withHeader {
+	if rt == nil {
+		rt = http.DefaultTransport
+	}
+
+	return withHeader{Header: make(http.Header), rt: rt}
+}
+
+func (h withHeader) RoundTrip(req *http.Request) (*http.Response, error) {
+	for k, v := range h.Header {
+		req.Header[k] = v
+	}
+
+	return h.rt.RoundTrip(req)
 }
 
 func initLogger() {
@@ -145,11 +211,19 @@ func CmdLogger() loggo.Logger {
 }
 
 func ReadCache(fileName string) (bool, []byte, error) {
+	return ReadCacheTouch(fileName, true)
+}
+
+func ReadCacheTouch(fileName string, touch bool) (bool, []byte, error) {
+	cmdLogger.Debugf("Reading %s from cache", fileName)
 	if !cacheDir.Exists(fileName) {
+		cmdLogger.Debugf("%s not in %s", fileName, cacheDir.Path)
 		return false, nil, nil
 	}
 
-	touchCacheFile(fileName)
+	if touch {
+		touchCacheFile(fileName)
+	}
 
 	b, err := cacheDir.ReadFile(fileName)
 	return true, b, err
@@ -172,6 +246,7 @@ func WriteCache(fileName string, buffer []byte) error {
 	if err != nil {
 		return err
 	}
+	cmdLogger.Infof("Writing %s to cache", fileName)
 	return cacheDir.WriteFile(fileName, buffer)
 }
 
