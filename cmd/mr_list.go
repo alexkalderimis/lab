@@ -22,6 +22,7 @@ var (
 	mrAuthor       string
 	ciStatus       bool
 	mrSourceBranch bool
+	fetchMROps     *gitlab.GetMergeRequestsOptions
 )
 
 // listCmd represents the list command
@@ -84,16 +85,19 @@ var listCmd = &cobra.Command{
 				fmt.Printf(" | %*s |", -maxBranchNameLength, mr.SourceBranch)
 			}
 			if ciStatus {
-				pipelines, err := lab.MRPipelines(rn, mr)
+				fullMR, _, err := lab.Client().MergeRequests.GetMergeRequest(rn, mr.IID, fetchMROps)
 				if err != nil {
-					log.Fatal(err)
-				}
-				if len(pipelines) > 0 {
-					status := pipelines[0].Status
-					printer := lab.StatusColor(status)
-					printer.Printf(" %s", status)
+					lab.CmdLogger().Errorf("Error retrieving MR info for !%s/%d", rn, mr.IID)
+				} else {
+					pipeline := fullMR.HeadPipeline
+					if pipeline != nil {
+						status := pipeline.Status
+						printer := lab.StatusColor(status)
+						printer.Printf(" %s", status)
+					}
 				}
 			}
+
 			fmt.Println("")
 		}
 	},
