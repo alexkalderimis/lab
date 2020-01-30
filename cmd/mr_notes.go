@@ -79,6 +79,7 @@ func getDiscussions(mr *gitlab.MergeRequest) {
 			log.Fatal(err)
 		}
 		lab.CmdLogger().Debugf("ListMergeRequestDiscussions resp=%s", resp)
+		lab.CmdLogger().Debugf("ListMergeRequestDiscussions found %d discussions", len(list))
 		for _, discussion := range list {
 			w.Reset()
 			written := 0
@@ -112,6 +113,7 @@ func getDiscussions(mr *gitlab.MergeRequest) {
 
 // TODO: fix printing notes when the line-width is too small
 func printNote(note *gitlab.Note, isReply bool) string {
+	lab.CmdLogger().Debugf("printNote id=%d Author=%s isReply=%v", note.ID, note.Author.Username, isReply)
 	var b strings.Builder
 	resolved := ""
 	if note.Resolved {
@@ -131,7 +133,9 @@ func printNote(note *gitlab.Note, isReply bool) string {
 		indent, -40, note.Author.Username, note.CreatedAt, resolved, position,
 		indent, strings.Repeat("-", 80))
 
-	for _, line := range strings.Split(note.Body, "\n") {
+	lab.CmdLogger().Debugf("printNote.justify %d", len(note.Body))
+	for i, line := range strings.Split(note.Body, "\n") {
+		lab.CmdLogger().Debugf("printNote.justify.line %d", i)
 		if len(line) == 0 {
 			fmt.Fprintf(&b, "\n%s", indent)
 			continue
@@ -140,6 +144,8 @@ func printNote(note *gitlab.Note, isReply bool) string {
 		pos := 0
 		rs := []rune(line)
 		for {
+			lab.CmdLogger().Debugf("printNote.justify.line.loop %d", pos)
+			lastPos := pos
 			for pos > 0 && pos < len(rs) && unicode.IsSpace(rs[pos]) {
 				pos++
 			}
@@ -157,6 +163,10 @@ func printNote(note *gitlab.Note, isReply bool) string {
 
 			fmt.Fprintf(&b, "\n%s%s", indent, string(rs[pos:endPos+1]))
 			pos = endPos + 1
+			if pos == lastPos {
+				fmt.Fprintf(&b, "\n%s%s", indent, string(rs[endPos+1:len(rs)-1]))
+				break
+			}
 		}
 	}
 	fmt.Fprintf(&b, "\n\n")
