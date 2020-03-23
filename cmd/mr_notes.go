@@ -6,6 +6,7 @@ import (
 	"log"
 	exec "os/exec"
 	strings "strings"
+	"time"
 	"unicode"
 
 	"github.com/spf13/cobra"
@@ -45,6 +46,10 @@ var mrNotesCmd = &cobra.Command{
 }
 
 func getNotes(mr *gitlab.MergeRequest) {
+	getNotesSince(mr, nil)
+}
+
+func getNotesSince(mr *gitlab.MergeRequest, cutoff *time.Time) {
 	client := lab.Client()
 	opts := gitlab.ListMergeRequestNotesOptions{ListOptions: gitlab.ListOptions{PerPage: 500}}
 	for {
@@ -53,6 +58,9 @@ func getNotes(mr *gitlab.MergeRequest) {
 			log.Fatal(err)
 		}
 		for _, note := range list {
+			if cutoff != nil && !note.CreatedAt.After(*cutoff) {
+				continue
+			}
 			if note.System && !includeSystemNotes {
 				continue
 			}
