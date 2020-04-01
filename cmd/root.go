@@ -125,11 +125,12 @@ func resolveMrId(rn string, mrNum int64) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
+	filterLabels := gitlab.Labels(mrLabels)
 	mrs, err := lab.MRList(rn, gitlab.ListProjectMergeRequestsOptions{
 		ListOptions: gitlab.ListOptions{
 			PerPage: 10,
 		},
-		Labels:       mrLabels,
+		Labels:       &filterLabels,
 		State:        &mrState,
 		OrderBy:      gitlab.String("updated_at"),
 		SourceBranch: gitlab.String(currentBranch),
@@ -178,11 +179,12 @@ func parseProjectMR(args []string) (string, *gitlab.MergeRequest, error) {
 		if err != nil {
 			return "", nil, err
 		}
+		filterLabels := gitlab.Labels(mrLabels)
 		mrs, err := lab.MRList(pid, gitlab.ListProjectMergeRequestsOptions{
 			ListOptions: gitlab.ListOptions{
 				PerPage: 10,
 			},
-			Labels:       mrLabels,
+			Labels:       &filterLabels,
 			State:        &mrState,
 			OrderBy:      gitlab.String("updated_at"),
 			SourceBranch: gitlab.String(currentBranch),

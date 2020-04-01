@@ -20,6 +20,7 @@ import (
 	time "time"
 
 	color "github.com/fatih/color"
+	retryablehttp "github.com/hashicorp/go-retryablehttp"
 	"github.com/juju/loggo"
 	"github.com/juju/loggo/loggocolor"
 	graphql "github.com/machinebox/graphql"
@@ -39,7 +40,7 @@ var (
 	host           string
 	user           string
 	token          string
-	UseColor       bool
+	UseColor       bool // should colour be used?
 	cmdLogger      = loggo.GetLogger("cmd")
 	failed         = color.New(color.FgRed)
 	passed         = color.New(color.FgGreen)
@@ -85,6 +86,7 @@ func User() string {
 	return user
 }
 
+// get the current user ID
 func UserID() (int, error) {
 	filename := "current_user.json"
 	getUser := func() (*gitlab.User, error) {
@@ -490,6 +492,23 @@ func MRClose(pid interface{}, id int) error {
 	return nil
 }
 
+// MRAssign assigns the given MR to the given user, and updates the value of MR
+func MRAssign(mr *gitlab.MergeRequest, userID int) error {
+	for _, user := range mr.Assignees {
+		if user.ID == userID {
+			return nil
+		}
+	}
+	_mr, _, err := lab.MergeRequests.UpdateMergeRequest(mr.ProjectID, mr.ID, &gitlab.UpdateMergeRequestOptions{
+		AssigneeIDs: []int{userID},
+	})
+	if err != nil {
+		return err
+	}
+	mr = _mr
+	return nil
+}
+
 // MRRebase merges an mr on a GitLab project
 func MRRebase(pid interface{}, id int) error {
 	_, err := lab.MergeRequests.RebaseMergeRequest(pid, int(id))
@@ -857,7 +876,8 @@ func ProjectList(opts gitlab.ListProjectsOptions, n int) ([]*gitlab.Project, err
 	return list, nil
 }
 
-func MRPipelines(pid interface{}, mr *gitlab.MergeRequest) (gitlab.PipelineList, error) {
+// MRPipelines get the pipelines for a given MR
+func MRPipelines(pid interface{}, mr *gitlab.MergeRequest) ([]*gitlab.PipelineInfo, error) {
 	pipelines, _, err := lab.MergeRequests.ListMergeRequestPipelines(pid, mr.IID)
 	return pipelines, err
 }
@@ -1010,8 +1030,9 @@ func UserIDFromUsername(username string) (int, error) {
 	return us[0].ID, nil
 }
 
+// OffsetPagination modifies the request to apply the given offset-pagination
 func OffsetPagination(page int, perPage int) gitlab.OptionFunc {
-	return func(req *http.Request) error {
+	return func(req *retryablehttp.Request) error {
 		q := req.URL.Query()
 		q.Add("page", strconv.Itoa(page))
 		q.Add("per_page", strconv.Itoa(perPage))

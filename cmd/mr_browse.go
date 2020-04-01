@@ -36,11 +36,12 @@ var mrBrowseCmd = &cobra.Command{
 			if err != nil {
 				log.Fatal(err)
 			}
+			labs := gitlab.Labels(mrLabels)
 			mrs, err := lab.MRList(rn, gitlab.ListProjectMergeRequestsOptions{
 				ListOptions: gitlab.ListOptions{
-					PerPage: 10,
+					PerPage: 1,
 				},
-				Labels:       mrLabels,
+				Labels:       &labs,
 				State:        &mrState,
 				OrderBy:      gitlab.String("updated_at"),
 				SourceBranch: gitlab.String(currentBranch),
@@ -51,6 +52,9 @@ var mrBrowseCmd = &cobra.Command{
 			if len(mrs) > 0 {
 				num = int64(mrs[0].IID)
 				hostURL.Path = path.Join(hostURL.Path, strconv.FormatInt(num, 10))
+			} else {
+				log.Println("no MR found")
+				return
 			}
 		}
 
@@ -64,5 +68,7 @@ var mrBrowseCmd = &cobra.Command{
 func init() {
 	mrBrowseCmd.MarkZshCompPositionalArgumentCustom(1, "__lab_completion_remote")
 	mrBrowseCmd.MarkZshCompPositionalArgumentCustom(2, "__lab_completion_merge_request $words[2]")
+	mrBrowseCmd.Flags().StringSliceVarP(
+		&mrLabels, "label", "l", []string{}, "filter merge requests by label")
 	mrCmd.AddCommand(mrBrowseCmd)
 }

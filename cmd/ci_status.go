@@ -3,8 +3,11 @@ package cmd
 import (
 	"fmt"
 	"log"
+	"math"
 	"os"
+	"strings"
 	"text/tabwriter"
+	"time"
 
 	color "github.com/fatih/color"
 	"github.com/pkg/errors"
@@ -143,21 +146,70 @@ func jobSummary(jobs []*gitlab.Job) string {
 		totalJobs, numPassed, numFailed, numQueued)
 }
 
+func pluralize(noun string, quantity int64) string {
+	if quantity == 0 {
+		return ""
+	} else if quantity == 1 {
+		return "1 " + noun
+	} else {
+		return fmt.Sprintf("%d %ss", quantity, noun)
+	}
+}
+
+func sinceMessage(moment time.Time) string {
+	ago := time.Since(moment)
+	var parts [2]string
+	var buff strings.Builder
+	if ago.Minutes() < 60 {
+		parts[0] = pluralize("minute", int64(math.Floor(ago.Minutes())))
+		parts[1] = pluralize("second", int64(math.Floor(ago.Seconds()))%60)
+	} else if ago.Hours() < 24 {
+		parts[0] = pluralize("second", int64(math.Floor(ago.Hours())))
+		parts[1] = pluralize("minute", int64(math.Floor(ago.Minutes()))%60)
+	} else {
+		parts[0] = pluralize("day", int64(math.Floor(ago.Hours()))/24)
+		parts[1] = pluralize("hour", int64(math.Floor(ago.Minutes()))%24)
+	}
+	for _, part := range parts {
+		if buff.Len() > 0 {
+			buff.WriteString(", ")
+		}
+		if len(part) > 0 {
+			buff.WriteString(part)
+		}
+	}
+	if buff.Len() > 0 {
+		return "(" + buff.String() + " ago)"
+	}
+	return ""
+}
+
+func layoutTime(when time.Time) string {
+	var layout string
+	if time.Since(when).Hours() < 12 && time.Now().YearDay() == when.YearDay() {
+		layout = time.Kitchen
+	} else {
+		layout = time.Stamp
+	}
+	return fmt.Sprintf("%s %s", when.Format(layout), sinceMessage(when))
+}
+
 func timeMessage(pipeline *gitlab.Pipeline) string {
 	if pipeline.Status == "pending" {
-		return fmt.Sprintf("created at %v", pipeline.CreatedAt)
+		return fmt.Sprintf("created at %s", layoutTime(*pipeline.CreatedAt))
 	} else if pipeline.Status == "running" {
-		return fmt.Sprintf("started at %v", pipeline.StartedAt)
+		return fmt.Sprintf("started at %s", layoutTime(*pipeline.StartedAt))
 	} else {
 		hours := pipeline.Duration / (60 * 60)
 		minutes := (pipeline.Duration / 60) - (hours * 60)
 		seconds := pipeline.Duration % 60
+		finished := fmt.Sprintf("finished at %s\n", layoutTime(*pipeline.FinishedAt))
 		if hours > 0 {
-			return fmt.Sprintf("duration:\t%d hrs, %d min, %d secs", hours, minutes, seconds)
+			return finished + fmt.Sprintf("duration:\t%d.%d:%d", hours, minutes, seconds)
 		} else if minutes > 0 {
-			return fmt.Sprintf("duration:\t%d min, %d secs", minutes, seconds)
+			return finished + fmt.Sprintf("duration:\t%d:%d", minutes, seconds)
 		} else {
-			return fmt.Sprintf("duration:\t%d secs", pipeline.Duration)
+			return finished + fmt.Sprintf("duration:\t%d secs", pipeline.Duration)
 		}
 	}
 }
